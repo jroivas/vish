@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <cstring>
 
 Executor::Executor()
     : m_return_code(0)
@@ -14,11 +15,13 @@ Executor::~Executor()
 
 void Executor::execute(const std::vector<std::string> &cmdline)
 {
-    const char ** items = new const char *[cmdline.size()];
+    const char ** items = new const char *[cmdline.size() + 1];
     unsigned int i = 0;
     for (std::string item : cmdline) {
-        items[i++] = item.c_str();
+        items[i] = strdup(item.c_str());
+        ++i;
     }
+    items[i] = nullptr;
 
     pid_t pid = fork();
     if (pid == 0) {
@@ -38,5 +41,13 @@ void Executor::execute(const std::vector<std::string> &cmdline)
         } while (!WIFEXITED(status) && !WIFSIGNALED(status));
 
         m_return_code = WEXITSTATUS(status);
+
+        // Freeing memory
+        for (unsigned int a = 0; a < i; ++a) {
+            free((void*)items[a]);
+            items[a] = nullptr;
+        }
+        delete [] items;
+        items = nullptr;
     }
 }
