@@ -1,8 +1,20 @@
 #include "prompt.hpp"
+#include <iostream>
+#include <csignal>
+
+Prompt prompt;
+
+void break_signal(int)
+{
+    std::cout << "Break\n";
+    prompt.resetLoop();
+}
+
 
 int main(int argc, char **argv)
 {
-    Prompt prompt;
+    std::signal(SIGINT, break_signal);
+
     // TODO Config
 
     prompt.loop();

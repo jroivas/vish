@@ -9,6 +9,7 @@ add_global_arguments('-Wno-error=pedantic', language : 'cpp')
 executable('vish', [
     'src/main.cpp',
     'src/prompt.cpp',
+    'src/builtin.cpp',
     'src/executor.cpp'
     ]
 )
