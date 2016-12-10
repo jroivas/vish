@@ -72,7 +72,7 @@ void Prompt::loop()
 
 void Prompt::eraseChar()
 {
-    std::cout << '\b' << ' ' << '\b';
+    std::cout << CHR_BACK << ' ' << CHR_BACK;
 }
 
 void Prompt::restoreLine(std::string line)
@@ -91,10 +91,10 @@ void Prompt::handleBackspace(std::string &res)
         res = res.erase(m_line_pos, 1);
 
         std::string rest = res.substr(m_line_pos) + " ";
-        std::cout << '\b';
+        std::cout << CHR_BACK;
         std::cout << rest;
         for (unsigned int i = 0; i < rest.size(); ++i) {
-            std::cout << '\b';
+            std::cout << CHR_BACK;
         }
     } else {
         if (!res.empty()) {
@@ -139,7 +139,7 @@ void Prompt::handleSpecial(std::string &res, std::vector<int> &special)
             } else if (special[2] == CHR_ARR_LEFT) {
                 if (m_line_pos > 0) {
                     --m_line_pos;
-                    std::cout << '\b';
+                    std::cout << CHR_BACK;
                 }
             } else if (special[2] == CHR_ARR_RIGHT) {
                 if (m_line_pos < res.size()) {
@@ -163,7 +163,7 @@ void Prompt::handleAppendInsert(std::string &res, int c)
             std::string rest = res.substr(m_line_pos + 1);
             std::cout << rest;
             for (unsigned int i = 0; i < rest.size(); ++i) {
-                std::cout << '\b';
+                std::cout << CHR_BACK;
             }
         }
     } else {

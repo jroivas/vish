@@ -23,6 +23,7 @@ private:
     static const int CHR_ARR_DOWN = 0x42;
     static const int CHR_ARR_LEFT = 0x44;
     static const int CHR_ARR_RIGHT = 0x43;
+    static const char CHR_BACK = '\b';
 
     void setupCanonical();
     void resetCanonical();
