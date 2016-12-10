@@ -120,7 +120,11 @@ std::string Prompt::readLine()
                             m_history_pos = 0;
                         }
                         restoreLine(res);
-                        res = m_history[m_history.size() - m_history_pos];
+                        if (m_history_pos == 0) {
+                            res = "";
+                        } else {
+                            res = m_history[m_history.size() - m_history_pos];
+                        }
                         std::string tmp = " RESTORE DN: " + res + "\n";
                         ff.write(tmp.c_str(), tmp.size());
                         std::cout << res;
