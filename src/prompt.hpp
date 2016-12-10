@@ -26,12 +26,15 @@ private:
 
     void setupCanonical();
     void resetCanonical();
-    std::vector<std::string> parseLine(const std::string &line);
-    std::vector<std::string> tokenize(const std::string &str, const std::string &delimiters = " ");
+    void parseLine(std::vector<std::string> &res, const std::string &line);
+    void tokenize(std::vector<std::string> &res, const std::string &str, const std::string &delimiters = " ");
     void executeCommand(const std::vector<std::string> &command);
     std::string readLine();
     void restoreLine(std::string line);
     void eraseChar();
+    void handleBackspace(std::string &res);
+    void handleSpecial(std::string &res, std::vector<int> &special);
+    void handleAppendInsert(std::string &res, int c);
 
     Builtin m_builtin;
 
@@ -44,4 +47,5 @@ private:
     std::vector<std::string> m_history;
     unsigned int m_history_pos;
     unsigned int m_line_pos;
+    bool m_insert;
 };

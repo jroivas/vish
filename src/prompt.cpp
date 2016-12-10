@@ -13,7 +13,9 @@ Prompt::Prompt()
     : m_running(true),
     m_got_eof(false),
     m_prompt("$ "),
-    m_history_pos(0)
+    m_history_pos(0),
+    m_line_pos(0),
+    m_insert(false)
 {
 }
 
@@ -55,13 +57,14 @@ void Prompt::loop()
     while (m_running) {
         m_invalid = false;
         std::cout << m_prompt;
-        // FIXME alternative controls, arrows, etc.
-        //std::getline(std::cin, line);
+
         m_history_pos = 0;
         line = readLine();
         if (!m_invalid) {
             m_history.push_back(line);
-            auto res = parseLine(line);
+
+            std::vector<std::string> res;
+            parseLine(res, line);
             executeCommand(res);
         }
     }
@@ -74,10 +77,99 @@ void Prompt::eraseChar()
 
 void Prompt::restoreLine(std::string line)
 {
-    for (auto c : line) {
-        (void)c;
+    for (unsigned int i = 0; i < line.size(); ++i) {
         eraseChar();
     }
+}
+
+void Prompt::handleBackspace(std::string &res)
+{
+    if (m_line_pos < res.size()) {
+        if (m_line_pos > 0) {
+            --m_line_pos;
+        }
+        res = res.erase(m_line_pos, 1);
+
+        std::string rest = res.substr(m_line_pos) + " ";
+        std::cout << '\b';
+        std::cout << rest;
+        for (unsigned int i = 0; i < rest.size(); ++i) {
+            std::cout << '\b';
+        }
+    } else {
+        if (!res.empty()) {
+            res = res.substr(0, res.size() - 1);
+        }
+        eraseChar();
+        --m_line_pos;
+    }
+}
+
+void Prompt::handleSpecial(std::string &res, std::vector<int> &special)
+{
+    if (special.size() >= 3) {
+        if (special[1] == CHR_SPECIAL_ARR) {
+            if (special[2] == CHR_ARR_UP) {
+                if (m_history.size() >= 1) {
+                    ++m_history_pos;
+                    if (m_history_pos >= m_history.size()) {
+                        m_history_pos = m_history.size();
+                    }
+                    restoreLine(res);
+                    res = m_history[m_history.size() - m_history_pos];
+                    std::cout << res;
+                    m_line_pos = res.size();
+                } else {
+                    m_history_pos = 0;
+                }
+            } else if (special[2] == CHR_ARR_DOWN) {
+                if (m_history_pos > 0) {
+                    --m_history_pos;
+                } else {
+                    m_history_pos = 0;
+                }
+                restoreLine(res);
+                if (m_history_pos == 0) {
+                    res = "";
+                } else {
+                    res = m_history[m_history.size() - m_history_pos];
+                }
+                std::cout << res;
+                m_line_pos = res.size();
+            } else if (special[2] == CHR_ARR_LEFT) {
+                if (m_line_pos > 0) {
+                    --m_line_pos;
+                    std::cout << '\b';
+                }
+            } else if (special[2] == CHR_ARR_RIGHT) {
+                if (m_line_pos < res.size()) {
+                    std::cout << res[m_line_pos];
+                    ++m_line_pos;
+                }
+            }
+        }
+        special.erase(special.begin(), special.end());
+    }
+}
+
+void Prompt::handleAppendInsert(std::string &res, int c)
+{
+    std::cout.put(c);
+    if (m_line_pos < res.size()) {
+        if (m_insert) {
+            res.replace(m_line_pos, 1, 1, c);
+        } else {
+            res.insert(m_line_pos, 1, c);
+            std::string rest = res.substr(m_line_pos + 1);
+            std::cout << rest;
+            for (unsigned int i = 0; i < rest.size(); ++i) {
+                std::cout << '\b';
+            }
+        }
+    } else {
+        res += c;
+    }
+    ++m_line_pos;
 }
 
 std::string Prompt::readLine()
@@ -88,97 +180,32 @@ std::string Prompt::readLine()
     std::vector<int> special;
     setupCanonical();
 
-    std::ofstream ff("log.txt", std::ios::out | std::ios::app);
-    ff.write("LINE\n", 5);
+#ifdef LOGGING
+    std::ofstream logf("log.txt", std::ios::out | std::ios::app);
+    logf.write("LINE\n", 5);
+#endif
     m_line_pos = 0;
     while (!m_got_eof) {
         bool do_append = true;
         int c = std::cin.get();
-#if 1
+#ifdef LOGGING
         std::stringstream ss;
         ss << " C: " << std::hex << c << " " << std::dec << (char)c << "\n";
-        ff.write(ss.str().c_str(), ss.str().size());
+        logf.write(ss.str().c_str(), ss.str().size());
 #endif
         if (c == CHR_BACKSPACE) {
-            if (m_line_pos < res.size()) {
-                if (m_line_pos > 0) {
-                    --m_line_pos;
-                }
-                res = res.erase(m_line_pos, 1);
-
-                std::string rest = res.substr(m_line_pos) + " ";
-                std::cout << '\b';
-                std::cout << rest;
-                for (auto c : rest) {
-                    std::cout << '\b';
-                }
-            } else {
-                if (!res.empty()) {
-                    res = res.substr(0, res.size() - 1);
-                }
-                eraseChar();
-                --m_line_pos;
-            }
+            handleBackspace(res);
             do_append = false;
         } else if (c == CHR_SPECIAL || !special.empty()) {
             special.push_back(c);
-            if (special.size() >= 3) {
-                if (special[1] == CHR_SPECIAL_ARR) {
-                    if (special[2] == CHR_ARR_UP) {
-                        if (m_history.size() >= 1) {
-                            ++m_history_pos;
-                            if (m_history_pos >= m_history.size()) {
-                                m_history_pos = m_history.size();
-                            }
-                            restoreLine(res);
-                            res = m_history[m_history.size() - m_history_pos];
-                            std::cout << res;
-                            m_line_pos = res.size();
-                        } else {
-                            m_history_pos = 0;
-                        }
-                    } else if (special[2] == CHR_ARR_DOWN) {
-                        if (m_history_pos > 0) {
-                            --m_history_pos;
-                        } else {
-                            m_history_pos = 0;
-                        }
-                        restoreLine(res);
-                        if (m_history_pos == 0) {
-                            res = "";
-                        } else {
-                            res = m_history[m_history.size() - m_history_pos];
-                        }
-                        std::cout << res;
-                        m_line_pos = res.size();
-                    } else if (special[2] == CHR_ARR_LEFT) {
-                        if (m_line_pos > 0) {
-                            --m_line_pos;
-                            std::cout << '\b';
-                        }
-                    } else if (special[2] == CHR_ARR_RIGHT) {
-                        if (m_line_pos < res.size()) {
-                            std::cout << res[m_line_pos];
-                            ++m_line_pos;
-                        }
-                        //std::cout << CHR_SPECIAL << CHR_SPECIAL_ARR << CHR_ARR_RIGHT;
-                    }
-                }
-                special.erase(special.begin(), special.end());
-            }
+            handleSpecial(res, special);
             do_append = false;
         } else if (c == CHR_EOL) {
             std::cout << "\n";
             break;
         }
         if (do_append) {
-            std::cout.put(c);
-            if (m_line_pos < res.size()) {
-                res.replace(m_line_pos, 1, 1, c);
-            } else {
-                res += c;
-            }
-            ++m_line_pos;
+            handleAppendInsert(res, c);
         }
     }
 
@@ -187,15 +214,12 @@ std::string Prompt::readLine()
 
 void Prompt::resetLoop()
 {
-    // FIXME
     m_invalid = true;
     m_got_eof = true;
 }
 
-std::vector<std::string> Prompt::tokenize(const std::string &str, const std::string &delimiters)
+void Prompt::tokenize(std::vector<std::string> &tokens, const std::string &str, const std::string &delimiters)
 {
-    std::vector<std::string> tokens;
-
     std::string part = "";
     bool quote = false;
     bool escape = false;
@@ -228,18 +252,11 @@ std::vector<std::string> Prompt::tokenize(const std::string &str, const std::str
     if (!part.empty()) {
         tokens.push_back(part);
     }
-
-    return tokens;
 }
 
-std::vector<std::string> Prompt::parseLine(const std::string &line)
+void Prompt::parseLine(std::vector<std::string> &res, const std::string &line)
 {
-    std::vector<std::string> res;
-
-    res = tokenize(line, " \t\r\n\a");
-    // TODO: Combine quoted in res
-
-    return res;
+    tokenize(res, line, " \t\r\n\a");
 }
 
 void Prompt::executeCommand(const std::vector<std::string> &command)
@@ -250,11 +267,13 @@ void Prompt::executeCommand(const std::vector<std::string> &command)
         return;
     }
 
+#ifdef DEBUG
     std::cout << "CMD:\n";
     for (auto c : command) {
         std::cout << c << " ";
     }
     std::cout << "\n";
+#endif
 
     if (m_builtin.run(command)) {
         m_return_code = m_builtin.status();
