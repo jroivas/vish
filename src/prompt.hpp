@@ -21,9 +21,11 @@ private:
     static const int CHR_SPECIAL_ARR = 0x5b;
     static const int CHR_ARR_UP = 0x41;
     static const int CHR_ARR_DOWN = 0x42;
-    static const int CHR_ARR_LEFT = 0x43;
-    static const int CHR_ARR_RIGHT = 0x44;
+    static const int CHR_ARR_LEFT = 0x44;
+    static const int CHR_ARR_RIGHT = 0x43;
 
+    void setupCanonical();
+    void resetCanonical();
     std::vector<std::string> parseLine(const std::string &line);
     std::vector<std::string> tokenize(const std::string &str, const std::string &delimiters = " ");
     void executeCommand(const std::vector<std::string> &command);
@@ -41,4 +43,5 @@ private:
     struct termios m_term;
     std::vector<std::string> m_history;
     unsigned int m_history_pos;
+    unsigned int m_line_pos;
 };

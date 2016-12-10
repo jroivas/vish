@@ -15,6 +15,15 @@ Prompt::Prompt()
     m_prompt("$ "),
     m_history_pos(0)
 {
+}
+
+Prompt::~Prompt()
+{
+    resetCanonical();
+}
+
+void Prompt::setupCanonical()
+{
     memset(&m_term, 0, sizeof(m_term));
     if (tcgetattr(0, &m_term) < 0) {
         perror("vish, terminal info");
@@ -30,7 +39,7 @@ Prompt::Prompt()
     }
 }
 
-Prompt::~Prompt()
+void Prompt::resetCanonical()
 {
     // Return default terminal control
     m_term.c_lflag |= ICANON;
@@ -77,9 +86,11 @@ std::string Prompt::readLine()
     m_got_eof = false;
 
     std::vector<int> special;
+    setupCanonical();
 
     std::ofstream ff("log.txt", std::ios::out | std::ios::app);
     ff.write("LINE\n", 5);
+    m_line_pos = 0;
     while (!m_got_eof) {
         bool do_append = true;
         int c = std::cin.get();
@@ -89,10 +100,25 @@ std::string Prompt::readLine()
         ff.write(ss.str().c_str(), ss.str().size());
 #endif
         if (c == CHR_BACKSPACE) {
-            if (!res.empty()) {
-                res = res.substr(0, res.size() - 1);
+            if (m_line_pos < res.size()) {
+                if (m_line_pos > 0) {
+                    --m_line_pos;
+                }
+                res = res.erase(m_line_pos, 1);
+
+                std::string rest = res.substr(m_line_pos) + " ";
+                std::cout << '\b';
+                std::cout << rest;
+                for (auto c : rest) {
+                    std::cout << '\b';
+                }
+            } else {
+                if (!res.empty()) {
+                    res = res.substr(0, res.size() - 1);
+                }
+                eraseChar();
+                --m_line_pos;
             }
-            eraseChar();
             do_append = false;
         } else if (c == CHR_SPECIAL || !special.empty()) {
             special.push_back(c);
@@ -106,14 +132,12 @@ std::string Prompt::readLine()
                             }
                             restoreLine(res);
                             res = m_history[m_history.size() - m_history_pos];
-                            std::string tmp = " RESTORE UP: " + res + "\n";
-                            ff.write(tmp.c_str(), tmp.size());
                             std::cout << res;
+                            m_line_pos = res.size();
                         } else {
                             m_history_pos = 0;
                         }
-                    }
-                    else if (special[2] == CHR_ARR_DOWN) {
+                    } else if (special[2] == CHR_ARR_DOWN) {
                         if (m_history_pos > 0) {
                             --m_history_pos;
                         } else {
@@ -125,14 +149,23 @@ std::string Prompt::readLine()
                         } else {
                             res = m_history[m_history.size() - m_history_pos];
                         }
-                        std::string tmp = " RESTORE DN: " + res + "\n";
-                        ff.write(tmp.c_str(), tmp.size());
                         std::cout << res;
+                        m_line_pos = res.size();
+                    } else if (special[2] == CHR_ARR_LEFT) {
+                        if (m_line_pos > 0) {
+                            --m_line_pos;
+                            std::cout << '\b';
+                        }
+                    } else if (special[2] == CHR_ARR_RIGHT) {
+                        if (m_line_pos < res.size()) {
+                            std::cout << res[m_line_pos];
+                            ++m_line_pos;
+                        }
+                        //std::cout << CHR_SPECIAL << CHR_SPECIAL_ARR << CHR_ARR_RIGHT;
                     }
                 }
                 special.erase(special.begin(), special.end());
             }
-            //std::cout << "SP: " << std::hex << special[0] << " " << special[1] << " " << special[2] << "\n";
             do_append = false;
         } else if (c == CHR_EOL) {
             std::cout << "\n";
@@ -140,7 +173,12 @@ std::string Prompt::readLine()
         }
         if (do_append) {
             std::cout.put(c);
-            res += c;
+            if (m_line_pos < res.size()) {
+                res.replace(m_line_pos, 1, 1, c);
+            } else {
+                res += c;
+            }
+            ++m_line_pos;
         }
     }
 
@@ -211,6 +249,12 @@ void Prompt::executeCommand(const std::vector<std::string> &command)
         m_running = false;
         return;
     }
+
+    std::cout << "CMD:\n";
+    for (auto c : command) {
+        std::cout << c << " ";
+    }
+    std::cout << "\n";
 
     if (m_builtin.run(command)) {
         m_return_code = m_builtin.status();
