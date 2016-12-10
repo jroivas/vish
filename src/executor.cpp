@@ -27,12 +27,12 @@ void Executor::execute(const std::vector<std::string> &cmdline)
     if (pid == 0) {
         // Child
         if (execvp(items[0], (char * const *)items) == -1) {
-            perror("vish");
+            perror(items[0]);
         }
         exit(EXIT_FAILURE);
     } else if (pid < 0) {
         // Failed to fork
-        perror("vish");
+        perror(items[0]);
     } else {
         int status = 0;
 

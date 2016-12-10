@@ -29,7 +29,7 @@ int Builtin::_cd(const std::vector<std::string> &args)
     }
 
     if (chdir(args[1].c_str()) != 0) {
-        perror("vish");
+        perror(("cd: " + args[1]).c_str());
     }
 
     return 0;
